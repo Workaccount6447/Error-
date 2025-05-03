@@ -1,100 +1,117 @@
+
 import os
-import logging
+import requests
 from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
-import openai
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
 
-# Configure logging
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
-)
-logger = logging.getLogger(__name__)
+# Configuration from environment variables
+TELEGRAM_TOKEN = os.getenv('8123828718:AAGwah8P4HhnGz6NvBpo-UeVIEq0qjzWmZc')
+OPENROUTER_MODEL = os.getenv('OPENROUTER_MODEL', 'openai/gpt-3.5-turbo')
+SUPPORT_BOT = "@Smartautomationsupport_bot"
+BRAND_CHANNEL = "@smartautomations"
+CREATOR = "@smartautomations"
 
-# Get environment variables
-BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+# OpenRouter API URL
+OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 
-# Initialize OpenAI
-openai.api_key = OPENAI_API_KEY
+# Dictionary to store conversation history
+conversation_history = {}
 
-# Store conversation history (user-specific)
-user_conversations = {}
-
-# Welcome message
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    user_conversations[user_id] = []  # Reset chat history
-    welcome_msg = (
-        f"🎉 Welcome {update.effective_user.first_name}!\n\n"
-        "🤖 You can ask me anything!\n\n"
-        "🔄 Use /newchat to start a fresh conversation.\n"
-        "✅ Support: @YourSupportChannel\n"
-        "💥 Powered by: @YourBrandChannel"
-    )
-    await update.message.reply_text(welcome_msg)
-
-# New chat command with confirmation
-async def newchat(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    user_conversations[user_id] = []  # Clear history
+def start(update: Update, context: CallbackContext) -> None:
+    """Send a welcome message when the command /start is issued."""
+    user = update.effective_user
+    chat_id = update.effective_chat.id
+    conversation_history[chat_id] = []
     
-    # Send confirmation message
-    await update.message.reply_text("🧹 **Bot history has been reset.**\n\n🔄 New chat started! Ask me anything.")
+    welcome_message = (
+        f"🎉 Welcome {user.first_name}!\n\n"
+        "🤖 How can I assist you today?\n\n"
+        "🤖 I am totally free and unlimited - feel free to ask me any questions\n\n"
+        "🔄 Use /newchat to start a fresh conversation.\n\n"
+        f"✅ Support: {SUPPORT_BOT}\n\n"
+        f"💥 Powered by: {BRAND_CHANNEL}"
+    )
+    update.message.reply_text(welcome_message)
 
-# Handle messages (with conversation history)
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
+def help_command(update: Update, context: CallbackContext) -> None:
+    """Send help message."""
+    help_text = (
+        f"👉 I am smart AI made by {CREATOR}.\n\n"
+        "🤖 Ask me any questions and I'll give you answers. Don't worry, I'm completely free 🔥.\n\n"
+        f"💥 If you need more support contact us on: {SUPPORT_BOT}"
+    )
+    update.message.reply_text(help_text)
+
+def newchat(update: Update, context: CallbackContext) -> None:
+    """Reset conversation history."""
+    chat_id = update.effective_chat.id
+    conversation_history[chat_id] = []
+    update.message.reply_text("🔄 Chat reset successfully! Ask me anything new.")
+
+def handle_message(update: Update, context: CallbackContext) -> None:
+    """Handle incoming messages."""
     user_message = update.message.text
-
-    # Initialize user's conversation history if not exists
-    if user_id not in user_conversations:
-        user_conversations[user_id] = []
-
-    # Add user message to history
-    user_conversations[user_id].append({"role": "user", "content": user_message})
-
-    # Send "ChatGPT is thinking..." message
-    thinking_msg = await update.message.reply_text("ChatGPT is thinking 🤔...")
-
+    chat_id = update.effective_chat.id
+    
+    if not user_message.strip():
+        update.message.reply_text("Please send a valid question or message.")
+        return
+    
     try:
-        # Call OpenAI API with conversation history
-        response = openai.ChatCompletion.create(
-            model="gpt-4-32k",
-            messages=user_conversations[user_id],
-            max_tokens=2000,
-            temperature=0.7,
-        )
-        bot_reply = response.choices[0].message['content']
+        if chat_id not in conversation_history:
+            conversation_history[chat_id] = []
         
-        # Add bot's reply to history
-        user_conversations[user_id].append({"role": "assistant", "content": bot_reply})
+        # Send thinking message
+        thinking_msg = update.message.reply_text("🔍 Smart AI is thinking 🤔...\n\n✨ We respect your patience")
+        
+        # Prepare messages with history
+        messages = conversation_history[chat_id].copy()
+        messages.append({"role": "user", "content": user_message})
+        
+        response = requests.post(
+            OPENROUTER_API_URL,
+            json={"model": OPENROUTER_MODEL, "messages": messages},
+            headers={"Content-Type": "application/json"}
+        )
+        response.raise_for_status()
+        
+        ai_response = response.json()["choices"][0]["message"]["content"]
+        
+        # Update history
+        conversation_history[chat_id].extend([
+            {"role": "user", "content": user_message},
+            {"role": "assistant", "content": ai_response}
+        ])
+        
+        # Edit thinking message with response
+        context.bot.edit_message_text(
+            chat_id=update.message.chat_id,
+            message_id=thinking_msg.message_id,
+            text=ai_response
+        )
+        
     except Exception as e:
-        logger.error(f"Error: {e}")
-        bot_reply = "⚠️ Error processing your request. Try again later."
+        print(f"Error: {e}")
+        update.message.reply_text(
+            f"⚠️ Sorry, I encountered an error. Please try again later or contact {SUPPORT_BOT}"
+        )
 
-    # Edit the message with the final response
-    await context.bot.edit_message_text(
-        chat_id=update.message.chat_id,
-        message_id=thinking_msg.message_id,
-        text=bot_reply
-    )
+def main() -> None:
+    """Start the bot."""
+    updater = Updater(TELEGRAM_TOKEN)
+    dispatcher = updater.dispatcher
 
-# Start the bot
-def main():
-    app = Application.builder().token(BOT_TOKEN).build()
-    
-    # Handlers
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("newchat", newchat))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    
-    # Error handler
-    app.add_error_handler(lambda update, context: logger.error(f"Update {update} caused error: {context.error}"))
-    
-    # Run bot
-    logger.info("🤖 Bot is running...")
-    app.run_polling()
+    # Command handlers
+    dispatcher.add_handler(CommandHandler("start", start))
+    dispatcher.add_handler(CommandHandler("help", help_command))
+    dispatcher.add_handler(CommandHandler("newchat", newchat))
 
-if __name__ == "__main__":
+    # Message handler
+    dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
+
+    updater.start_polling()
+    print("Bot is running...")
+    updater.idle()
+
+if __name__ == '__main__':
     main()
