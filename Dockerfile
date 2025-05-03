@@ -18,7 +18,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY bot.py .
 
 # Environment variables
-ENV TELEGRAM_TOKEN="8123828718:AAGwah8P4HhnGz6NvBpo-UeVIEq0qjzWmZc"
+ENV TELEGRAM_TOKEN="7695867957:AAHZcfWmeT-WY2Z67n8uyE3PnN5-4FnM8BQ"
 ENV OPENROUTER_MODEL="openai/gpt-3.5-turbo"
 
 # Run the bot
