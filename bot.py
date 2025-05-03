@@ -5,7 +5,7 @@ from telegram import Update
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
 
 # Configuration from environment variables
-TELEGRAM_TOKEN = os.getenv('8123828718:AAGwah8P4HhnGz6NvBpo-UeVIEq0qjzWmZc')
+TELEGRAM_TOKEN = os.getenv('7695867957:AAHZcfWmeT-WY2Z67n8uyE3PnN5-4FnM8BQ')
 OPENROUTER_MODEL = os.getenv('OPENROUTER_MODEL', 'openai/gpt-3.5-turbo')
 SUPPORT_BOT = "@Smartautomationsupport_bot"
 BRAND_CHANNEL = "@smartautomations"
