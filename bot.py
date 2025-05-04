@@ -220,7 +220,7 @@ def main() -> None:
     dispatcher.add_handler(CommandHandler("setbroadcast", set_broadcast))
     dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
     
-    PORT = int(os.getenv("PORT", 8000))
+    PORT = int(os.getenv("PORT", 8080))
     APP_NAME = os.getenv("KOYEB_APP_NAME", "your-app-name")
     
     updater.start_webhook(
