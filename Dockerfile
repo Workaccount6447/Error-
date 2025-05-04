@@ -31,4 +31,4 @@ HEALTHCHECK --interval=30s --timeout=10s \
   CMD curl -f http://localhost:$PORT/ || exit 1
 
 # Run the bot
-CMD ["gunicorn", "--bind", "0.0.0.0:$PORT", "--workers", "1", "--threads", "2", "bot:main"]
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "1", "--threads", "2", "bot:main"]
